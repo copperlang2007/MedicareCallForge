@@ -6,11 +6,21 @@
 
 **Repo:** https://github.com/copperlang2007/MedicareCallForge
 
-**Core End-to-End Dual-Stream System: Delivered** (both revenue streams fully implemented and working).
+**Status: Production Pilot Ready** — Both revenue streams, Hard Compliance Gate, GHL integration, and MCP tools fully implemented and verified.
 
-**Core End-to-End Dual-Stream System: Delivered** (both revenue streams fully implemented and working).
+## Quick Start
 
-## Both Streams Implemented
+```powershell
+cd C:\Users\lang2\MedicareCallForge
+py -3 -m pip install -e ".[dev]"
+uvicorn src.medicare_call_forge.app:app --reload
+# In another terminal:
+python examples/full_flow_simulator.py
+```
+
+Open the luxury operator dashboard at http://localhost:8000/dashboard
+
+## Core Capabilities
 
 The system correctly handles the two monetization paths from the business plan:
 
@@ -20,26 +30,21 @@ High-intent calls are scored and routed toward licensed agents for commission re
 **Stream 2 — Social (FB/YouTube educational) → Sell Calls at $25**  
 Lower-intent/overflow volume is scored and routed toward the sell stream (must keep CAC <$18 for positive margin). Produces leadmarket-style packaged leads with compliance proof.
 
-Every call is forced through the **Hard Compliance Gate** first (non-bypassable, evidence-based, tamper-evident audit trail) before any monetization decision.
+**Non-negotiable**: Every call is forced through the **Hard Compliance Gate** first (non-bypassable, evidence-based, tamper-evident audit trail) before any monetization decision.
 
-## What Is Actually Working Right Now
+## What's Delivered
 
-- Hard Compliance Gate (production version, synthesized from your strongest repo assets)
-- Medicare UVal Scorer (drives optimal dual-stream decisions)
-- Full FastAPI intake service with both paths wired
-- Sell tool that produces packaged leads for the $25 stream
-- Router integration adapter for your real llm-router-engine
-- Observability + dual-stream economics stub
-- Dockerfile + Railway one-click deploy
-- Simulator that explicitly demonstrates **both** streams with realistic data
+- Hard Compliance Gate (production version)
+- Medicare-tuned UVal Scorer for optimal dual-stream routing
+- Full FastAPI service with telephony webhook (`/webhooks/twilio/voice`)
+- Real bidirectional GHL/LeadConnector integration (custom fields + outcome logging)
+- MCP tools for agents (Claude Desktop, Cursor, etc.)
+- Luxury operator dashboard at `/dashboard`
+- Router integration adapter ready for your llm-router-engine
+- Dockerfile + Railway deployment ready
+- Comprehensive simulator demonstrating **both** streams
 
-Run the demo:
-```powershell
-cd C:\Users\lang2\MedicareCallForge
-pip install -e ".[dev]"
-uvicorn src.medicare_call_forge.app:app --reload
-# In another terminal:
-python examples/full_flow_simulator.py
+See [PILOT_WIRING_GUIDE.md](PILOT_WIRING_GUIDE.md) for how to connect real Twilio + GHL traffic.
 ```
 
 You will see one path routed to `enroll_in_house` and one to `sell_call`.
