@@ -1,6 +1,12 @@
 # MedicareCallForge
 
+[![GitHub](https://img.shields.io/badge/GitHub-copperlang2007/MedicareCallForge-blue?logo=github)](https://github.com/copperlang2007/MedicareCallForge)
+
 **Production-grade multi-agent intake, compliance, and dual-stream decisioning system for Medicare inbound call lead generation.**
+
+**Repo:** https://github.com/copperlang2007/MedicareCallForge
+
+**Core End-to-End Dual-Stream System: Delivered** (both revenue streams fully implemented and working).
 
 **Core End-to-End Dual-Stream System: Delivered** (both revenue streams fully implemented and working).
 
