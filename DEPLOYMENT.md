@@ -1,30 +1,38 @@
-# Deployment & Pilot Wiring
+# Deployment & Going Live
 
-This document provides the fastest path to production pilot.
+## Local Development (Fastest for Testing)
 
-## Local Development
+```powershell
+cd C:\Users\lang2\MedicareCallForge
+py -3 -m pip install -e ".[dev]"
+uvicorn src.medicare_call_forge.app:app --reload
+```
 
-See README.md for quick start.
+Then run the simulator in another terminal:
+```powershell
+python examples/full_flow_simulator.py
+```
 
-## Connecting Real Traffic (Recommended Next Step)
+Open the luxury dashboard: http://localhost:8000/dashboard
 
-→ **[PILOT_WIRING_GUIDE.md](PILOT_WIRING_GUIDE.md)** — The authoritative guide for wiring real Twilio numbers and GHL studio workflows.
+## Production Pilot Wiring (Recommended Next Step)
 
-This includes:
-- Environment variables (Twilio + GHL + TaskRouter)
-- Webhook configuration
-- GHL custom field forwarding (`LicensedStates`, `CarrierAppointments`, etc.)
+→ See **[PILOT_WIRING_GUIDE.md](PILOT_WIRING_GUIDE.md)** for the complete, step-by-step instructions.
+
+This covers:
+- Real Twilio number webhook configuration
+- GHL studio / workflow integration
+- Required environment variables (`TWILIO_*`, `GHL_*`, TaskRouter SIDs)
+- LC Phone custom field handling ("lc phone")
+- Media Streams for transcription
 - TaskRouter enqueue for both streams
-- Media Streams for transcription (masterBRIDGE pattern)
 
-## Production Deployment Options
+## Deployment Options
 
-### Railway (Fastest)
-- Link this repo
+### Railway (Recommended for Pilot)
+- Connect this repo
 - Set environment variables from `.env.example`
-- Deploy
-
-`railway.toml` and multi-stage `Dockerfile` are already configured.
+- Deploy (multi-stage Dockerfile + `railway.toml` already configured)
 
 ### Docker
 ```bash
@@ -34,31 +42,21 @@ docker run -p 8000:8000 --env-file .env medicarecallforge
 
 ## MCP Tools for Agents
 
-Install the MCP extra:
 ```bash
 pip install -e ".[mcp]"
-```
-
-Run the GHL tools server:
-```bash
 medicarecallforge-ghl-mcp
 ```
 
-Or via module:
-```bash
-python -m medicare_call_forge.mcp.server
-```
+Configure in Claude Desktop / Cursor for direct agent access to GHL + MedicareCallForge tools.
 
-Configure in Claude Desktop / Cursor for full agent access to GHL + MedicareCallForge logic.
+## Monitoring
 
-## Monitoring & Observability
-
-- `/dashboard` — Luxury operator console with live feed, charts, and audit export
+- `/dashboard` — Full operator console with live calls, charts, and one-click audit export
 - `/health`
 - `/audit/vault`
 - `/metrics/economics`
 - `/ghl/health`
 
-## Next After Pilot Wiring
+## Next Steps After Wiring
 
-See [docs/ROADMAP.md](docs/ROADMAP.md) and [docs/MARKET_PILOT_CHECKLIST.md](docs/MARKET_PILOT_CHECKLIST.md).
+See [docs/MARKET_PILOT_CHECKLIST.md](docs/MARKET_PILOT_CHECKLIST.md) and [docs/ROADMAP.md](docs/ROADMAP.md).

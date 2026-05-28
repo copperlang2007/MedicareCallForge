@@ -17,7 +17,7 @@ By participating, you agree to maintain the highest standards of professionalism
 
 ```bash
 cd MedicareCallForge
-py -3 -m pip install -e ".[dev,mcp]"
+py -3 -m pip install -e ".[dev]"
 ```
 
 ## Key Principles

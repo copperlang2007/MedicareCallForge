@@ -45,9 +45,23 @@ Lower-intent/overflow volume is scored and routed toward the sell stream (must k
 - Comprehensive simulator demonstrating **both** streams
 
 See [PILOT_WIRING_GUIDE.md](PILOT_WIRING_GUIDE.md) for how to connect real Twilio + GHL traffic.
-```
 
-You will see one path routed to `enroll_in_house` and one to `sell_call`.
+## Documentation
+
+- [PILOT_WIRING_GUIDE.md](PILOT_WIRING_GUIDE.md) — How to go live with real traffic
+- [DEPLOYMENT.md](DEPLOYMENT.md) — Deployment options and pilot setup
+- [architecture/ARCHITECTURE.md](architecture/ARCHITECTURE.md)
+- [docs/MARKET_PILOT_CHECKLIST.md](docs/MARKET_PILOT_CHECKLIST.md)
+- [docs/ROADMAP.md](docs/ROADMAP.md)
+- [docs/CONSOLIDATION_STRATEGY.md](docs/CONSOLIDATION_STRATEGY.md)
+
+## License
+
+Proprietary — see [LICENSE](LICENSE) for details.
+
+---
+
+**Built with extreme precision for regulated Medicare operations.**
 
 ## Current Market Pilot Readiness
 
