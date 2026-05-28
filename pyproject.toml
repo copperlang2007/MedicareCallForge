@@ -1,0 +1,63 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "medicare-call-forge"
+version = "0.1.0"
+description = "Production-grade multi-agent intake and compliance engine for Medicare inbound call lead generation. End-to-end ready for controlled market pilot."
+readme = "README.md"
+license = {text = "Proprietary - For copperlang2007 internal + licensed use"}
+requires-python = ">=3.11"
+authors = [
+  {name = "Grok (as autonomous builder for the user)", email = "build@medicarecallforge.local"}
+]
+dependencies = [
+  "fastapi>=0.110",
+  "uvicorn[standard]>=0.27",
+  "pydantic>=2.6",
+  "python-dotenv>=1.0",
+  "pydantic-settings>=2.0",
+  "twilio>=9.0",  # for TwiML, signature validation, TaskRouter integration (GHL+masterBRIDGE patterns)
+  "httpx>=0.27",   # for real GHL (LeadConnector) API calls
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0",
+  "ruff>=0.4",
+  "mypy>=1.8",
+  "httpx>=0.27",  # for testing
+]
+mcp = [
+  "mcp>=1.0",  # Anthropic MCP SDK for exposing tools to Claude Desktop / agents
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/medicare_call_forge"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "C4", "SIM", "TCH"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-ra -q --strict-markers"
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_return_any = true
+disallow_untyped_defs = true
+
+[project.scripts]
+callforge = "medicare_call_forge.cli:main"  # placeholder for future CLI
+medicarecallforge-ghl-mcp = "medicare_call_forge.mcp.server:main"
+
+[project.urls]
+Homepage = "https://github.com/copperlang2007/MedicareCallForge"  # when published
+Documentation = "https://github.com/copperlang2007/MedicareCallForge/tree/main/docs"
