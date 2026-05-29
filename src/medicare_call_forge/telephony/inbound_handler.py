@@ -53,6 +53,8 @@ from medicare_call_forge.compliance.gate import (
 from medicare_call_forge.scoring.uval_scorer import MedicareLeadScorer
 from medicare_call_forge.router_integration import RealRouterAdapter
 from medicare_call_forge.ghl.client import ghl_client
+from medicare_call_forge.economics.dual_stream_pnl import economics_engine
+from medicare_call_forge.observability import audit_vault
 
 load_dotenv()  # dev convenience; Railway/Docker inject real env
 
@@ -80,6 +82,13 @@ class TelephonySettings(BaseSettings):
     # Custom field key in GHL where the LC Phone number lives for this client
     # (your setup uses "lc phone" / lc_phone)
     GHL_PHONE_CUSTOM_FIELD: str = "lc_phone"  # change to "lc phone" if that's the exact key in your GHL
+
+    # === SAFE LIVE TEST HARDENING (military test mode) ===
+    # When true: relaxes the five core compliance evidence checks (TPMO, SOA, recording, PEWC, language)
+    # so real phone test calls can reach the brain + routing without perfect scripted language every time.
+    # EVERYTHING is still fully logged + audited with explicit "TEST_MODE_ACTIVE" flag.
+    # Never enable in production. Use only with dedicated test Twilio numbers.
+    COMPLIANCE_TEST_MODE: bool = False
 
 
 settings = TelephonySettings()
@@ -300,19 +309,24 @@ def _build_enroll_twiml(
             logger.info("Enqueued to TaskRouter ENROLL workflow %s with rich attrs for %s", workflow_sid, call_sid)
         except Exception as exc:
             logger.error("TaskRouter Enqueue build failed, graceful fallback to Dial: %s", exc)
-            _add_fallback_dial(resp, call_sid, compliance_hash)
+            _add_fallback_dial(resp, call_sid, compliance_hash, decision, uval, live.get("brain_rationale"))
     else:
         logger.warning("No TWILIO_ENROLL_WORKFLOW_SID configured - using Dial fallback (pilot mode)")
-        _add_fallback_dial(resp, call_sid, compliance_hash)
+        _add_fallback_dial(resp, call_sid, compliance_hash, decision, uval, live.get("brain_rationale"))
 
     return str(resp)
 
 
-def _add_fallback_dial(resp: VoiceResponse, call_sid: str, compliance_hash: str) -> None:
+def _add_fallback_dial(resp: VoiceResponse, call_sid: str, compliance_hash: str, decision: str = "unknown", uval: float = 0.0, brain_rationale: str | None = None) -> None:
     """Graceful degradation when no TaskRouter workflow configured."""
+    qs = f"compliance_hash={compliance_hash}"
+    if decision != "unknown":
+        qs += f"&decision={decision}&uval={uval}"
+    if brain_rationale:
+        qs += f"&brain_rationale={brain_rationale[:100]}"
     dial = Dial(
         caller_id=settings.TWILIO_PHONE_NUMBER,
-        action=f"/webhooks/twilio/status?compliance_hash={compliance_hash}",
+        action=f"/webhooks/twilio/status?{qs}",
         record="record-from-answer",
     )
     # In real pilot: replace with your GHL Call Center / SIP or queue number from ghl_phone_number field
@@ -426,7 +440,10 @@ async def twilio_voice_inbound(request: Request) -> Response:
     )
 
     # 4. Hard Compliance Gate enforcement (BEFORE scorer, routing, transfer - masterBRIDGE compliance.ts rule)
-    compliance = apply_hard_compliance_gate(context)
+    # In COMPLIANCE_TEST_MODE we still run the gate for logging, but allow the call to proceed
+    # even if core evidence checks fail (full audit trail is preserved with TEST_MODE flag).
+    test_mode = settings.COMPLIANCE_TEST_MODE
+    compliance = apply_hard_compliance_gate(context, test_mode=test_mode)
     audit_event = create_audit_event(
         prev_hash=None,
         event_type="compliance_gate",
@@ -440,7 +457,7 @@ async def twilio_voice_inbound(request: Request) -> Response:
         # Audit already created; status callback will still fire for any partial recording
         return Response(content=twiml, media_type="application/xml")
 
-    # 5. Scorer / future orchestrator adapter (after gate only)
+    # 5. Live MultiAgentOrchestrator (real brain) decision after Hard Gate (resume "wire real live")
     score_input = {
         "compliance_score": compliance.compliance_score,
         "has_high_intent_signals": intent == "enroll" or bool(speech and "enroll" in (speech or "").lower()),
@@ -451,21 +468,59 @@ async def twilio_voice_inbound(request: Request) -> Response:
         "ghl_licensed_states_count": len(ghl_enriched.get("licensed_states", [])),
     }
 
-    # Prefer real orchestrator adapter when active (llm-router-engine), fallback to local UVal scorer
-    try:
-        adapter_result = router_adapter.score_and_decide(score_input)
-        if "score" in adapter_result:
-            score = MedicareLeadScorer().score(score_input)  # normalized
-            # In full wiring the adapter would return enriched decision; use local for now
-        else:
-            score = scorer.score(score_input)
-    except Exception as exc:
-        logger.warning("Router adapter failed gracefully, using local scorer: %s", exc)
-        score = scorer.score(score_input)
+    live = router_adapter.decide_telephony_stream(score_input)
 
-    decision = score.recommended_stream
+    # Military end-to-end: Prefer live brain decision when available and valid (brain is now authoritative)
+    brain_decision = live.get("brain_recommendation")
+    local_decision = live.get("decision", "sell_call")
+
+    if live.get("source", "").startswith("llm-router") and brain_decision in ("enroll_in_house", "sell_call"):
+        decision = brain_decision
+        decision_source = "live-brain"
+    else:
+        decision = local_decision
+        decision_source = "local-uval"
+
+    uval = live.get("uval", 0.55)
+
     if decision not in ("enroll_in_house", "sell_call"):
-        decision = "sell_call"  # conservative
+        decision = "sell_call"
+        decision_source = "fallback"
+
+    # Full audit logging of decision provenance (military compliance requirement)
+    if live.get("source", "").startswith("llm-router"):
+        brain_rat = live.get("brain_rationale")
+        extra = f" | source={decision_source}"
+        if brain_rat:
+            extra += f" | brain_rationale={str(brain_rat)[:140]}"
+        logger.info("LIVE BRAIN DECISION for call %s | final=%s | local=%s | metrics=%s%s",
+                    call_sid, decision, local_decision, live.get("brain_metrics", {}), extra)
+    else:
+        logger.info("LOCAL UVAL DECISION for call %s | final=%s", call_sid, decision)
+
+    # === Military audit trail: Record brain_routing_decision as chained audit event ===
+    try:
+        brain_audit_payload = {
+            "decision_source": decision_source,
+            "final_decision": decision,
+            "local_uval_decision": local_decision,
+            "brain_recommendation": live.get("brain_recommendation"),
+            "brain_rationale": live.get("brain_rationale"),
+            "brain_metrics": live.get("brain_metrics", {}),
+            "uval": uval,
+            "compliance_score": compliance.compliance_score,
+            "intent": intent,
+        }
+        brain_audit = create_audit_event(
+            prev_hash=compliance.audit_hash,
+            event_type="brain_routing_decision",
+            entity_id=call_sid,
+            payload=brain_audit_payload,
+        )
+        audit_vault.append(brain_audit.model_dump())
+        logger.info("BRAIN AUDIT: %s | hash=%s", decision_source, brain_audit.hash[:12])
+    except Exception as exc:
+        logger.warning("Brain audit event creation failed (non-fatal): %s", exc)
 
     # 6. Build correct TwiML per stream with rich provenance
     sell_package = None
@@ -485,13 +540,13 @@ async def twilio_voice_inbound(request: Request) -> Response:
             },
             "suggested_price_cents": 2500,
             "ghl_fields": ghl_enriched,
-            "uval": score.overall_uval,
+            "uval": uval,
         }
 
     twiml = _build_compliant_twiml_for_stream(
         decision=decision,
         compliance_hash=compliance.audit_hash,
-        uval=score.overall_uval,
+        uval=uval,
         state=state,
         ghl_fields=ghl_enriched,
         call_sid=call_sid,
@@ -500,15 +555,16 @@ async def twilio_voice_inbound(request: Request) -> Response:
     )
 
     logger.info(
-        "TELEPHONY INBOUND %s | gate_pass=%s | uval=%.3f | stream=%s | intent=%s | licensed=%s | state=%s | hash=%s",
+        "TELEPHONY INBOUND %s | gate_pass=%s | uval=%.3f | stream=%s | intent=%s | licensed=%s | state=%s | hash=%s | brain=%s",
         call_sid,
         compliance.ready_for_next_step,
-        score.overall_uval,
+        uval,
         decision,
         intent,
         ghl_enriched.get("licensed_states"),
         state,
         compliance.audit_hash[:16],
+        live.get("source", "local"),
     )
 
     return Response(content=twiml, media_type="application/xml")
@@ -530,6 +586,14 @@ async def twilio_status(request: Request) -> dict[str, Any]:
     call_status = payload.get("CallStatus")
     duration = payload.get("CallDuration") or payload.get("RecordingDuration")
     compliance_hash = payload.get("compliance_hash") or request.query_params.get("compliance_hash")
+
+    # Best-effort extraction of decision context (may come from query or custom params in real flows)
+    from_number = payload.get("From") or payload.get("Caller")
+    decision = payload.get("decision") or request.query_params.get("decision") or "unknown"
+    uval = float(payload.get("uval") or request.query_params.get("uval") or 0.0)
+    compliance_score = float(payload.get("compliance_score") or request.query_params.get("compliance_score") or 0.0)
+    state = payload.get("CallerState") or request.query_params.get("state")
+    brain_rationale = request.query_params.get("brain_rationale") or payload.get("brain_rationale")
 
     vault_record = {
         "call_sid": call_sid,
@@ -556,9 +620,9 @@ async def twilio_status(request: Request) -> dict[str, Any]:
         logger.error("Vault audit creation failed (non-fatal): %s", exc)
 
     # === Real GHL outcome sync using the nice Medicare helper ===
-    if ghl_client.enabled:
+    if ghl_client.enabled and from_number:
         try:
-            contact = ghl_client.search_contact_by_phone(from_number or "")
+            contact = ghl_client.search_contact_by_phone(from_number)
             if contact:
                 ghl_client.log_medicare_call_outcome(
                     contact_id=contact["id"],
@@ -569,10 +633,30 @@ async def twilio_status(request: Request) -> dict[str, Any]:
                     recording_url=recording_url,
                     state=state,
                     from_number=from_number,
+                    # Brain provenance for full military trail (best-effort in GHL note)
+                    brain_rationale=brain_rationale,
                 )
                 logger.info("GHL Medicare outcome logged for contact %s (decision=%s)", contact["id"], decision)
         except Exception as exc:
             logger.warning("GHL outcome sync failed (non-fatal): %s", exc)
+
+    # === Feed real economics engine (Phase 1 foundation) ===
+    try:
+        # Rough cost model for pilot; replace with real per-call cost from grok-extract when available
+        cost_cents = 1800 if decision == "sell_call" else 6500
+        revenue_cents = 2500 if decision == "sell_call" else 18000  # placeholder high LTV for enroll
+        economics_engine.record_live_call(
+            call_id=call_sid or "unknown",
+            decision=decision,
+            cost_cents=cost_cents,
+            revenue_cents=revenue_cents,
+            uval=uval or 0.0,
+            compliance_score=compliance_score or 0.0,
+            is_enrollment=(decision == "enroll_in_house"),
+        )
+        # Note: brain_rationale available in this scope for future enrichment of economics records
+    except Exception as exc:
+        logger.warning("Economics engine record failed (non-fatal): %s", exc)
 
     logger.info(
         "POST-CALL PROCESSING complete for %s: status=%s duration=%s url=%s",

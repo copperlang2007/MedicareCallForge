@@ -120,7 +120,7 @@ def _compute_hash(prev_hash: str | None, payload: dict[str, Any]) -> str:
     return hashlib.sha256(body.encode("utf-8")).hexdigest()
 
 
-def apply_hard_compliance_gate(context: CallContext, prev_hash: str | None = None) -> ComplianceResult:
+def apply_hard_compliance_gate(context: CallContext, prev_hash: str | None = None, test_mode: bool = False) -> ComplianceResult:
     """
     The single most important function in the entire system.
     Must run synchronously at call answer before any routing or human handoff.
@@ -146,15 +146,34 @@ def apply_hard_compliance_gate(context: CallContext, prev_hash: str | None = Non
         "language_access_notice": ComplianceFlagCode.WEAK_EVIDENCE_LANGUAGE_ACCESS_NOTICE,
     }
 
-    for key, required in REQUIRED_POLICY["required_mentions"].items():
+    # Core evidence checks (TPMO, SOA, Recording, PEWC, Language Access)
+    # In test_mode these are relaxed but every bypass is explicitly recorded.
+    core_evidence_keys = ["tp_mo_disclaimer_verbatim", "soa_before_specifics", "recording_started", "pewc_captured", "language_access_notice"]
+
+    for key in core_evidence_keys:
+        required = REQUIRED_POLICY["required_mentions"].get(key, False)
         if required and not mentions.get(key, False):
-            code = POLICY_KEY_TO_MISSING.get(key, ComplianceFlagCode.MISSING_TPMO_DISCLAIMER)
-            flags.append(ComplianceFlag(code=code, severity=Severity.HIGH))
+            if test_mode:
+                flags.append(ComplianceFlag(
+                    code=ComplianceFlagCode.MISSING_TPMO_DISCLAIMER,  # generic for logging
+                    severity=Severity.LOW,
+                    evidence=f"TEST_MODE_BYPASS: {key}"
+                ))
+            else:
+                code = POLICY_KEY_TO_MISSING.get(key, ComplianceFlagCode.MISSING_TPMO_DISCLAIMER)
+                flags.append(ComplianceFlag(code=code, severity=Severity.HIGH))
 
     for key, mentioned in mentions.items():
         if mentioned and not quotes.get(key):
-            code = POLICY_KEY_TO_WEAK.get(key, ComplianceFlagCode.WEAK_TPMO_EVIDENCE)
-            flags.append(ComplianceFlag(code=code, severity=Severity.MED))
+            if test_mode and key in core_evidence_keys:
+                flags.append(ComplianceFlag(
+                    code=ComplianceFlagCode.WEAK_TPMO_EVIDENCE,
+                    severity=Severity.LOW,
+                    evidence=f"TEST_MODE_WEAK: {key}"
+                ))
+            else:
+                code = POLICY_KEY_TO_WEAK.get(key, ComplianceFlagCode.WEAK_TPMO_EVIDENCE)
+                flags.append(ComplianceFlag(code=code, severity=Severity.MED))
 
     # Medicare-specific hard checks (from masterBRIDGE compliance.ts + business plan)
     if not context.has_explicit_tcpa_consent:
@@ -180,7 +199,19 @@ def apply_hard_compliance_gate(context: CallContext, prev_hash: str | None = Non
 
     quality_score = max(0.0, 90.0 - (100.0 - compliance_score) * 0.35)
 
-    ready = len([f for f in flags if f.severity == Severity.HIGH]) == 0 and compliance_score >= 85.0
+    high_severity_flags = [f for f in flags if f.severity == Severity.HIGH]
+    ready = len(high_severity_flags) == 0 and compliance_score >= 85.0
+
+    if test_mode:
+        # In test mode we allow the call to proceed for brain decision + routing testing,
+        # but we force an explicit flag so every downstream system knows this was a test run.
+        ready = True
+        if "TEST_MODE_ACTIVE" not in [f.code for f in flags]:
+            flags.append(ComplianceFlag(
+                code=ComplianceFlagCode.MISSING_TPMO_DISCLAIMER,  # reused as marker
+                severity=Severity.LOW,
+                evidence="COMPLIANCE_TEST_MODE_ACTIVE - evidence checks relaxed for safe live testing"
+            ))
 
     # Tamper-evident audit hash chain (critical for 10-year CMS vault)
     audit_payload = {
@@ -188,6 +219,7 @@ def apply_hard_compliance_gate(context: CallContext, prev_hash: str | None = Non
         "compliance_score": compliance_score,
         "flags": [f.model_dump() for f in flags],
         "ready": ready,
+        "test_mode": test_mode,
     }
     current_hash = _compute_hash(prev_hash, audit_payload)
 

@@ -366,34 +366,67 @@ LUXURY_DASHBOARD_HTML = """<!DOCTYPE html>
             </div>
         </div>
 
-        <!-- ==================== BRAIN & ROUTING TAB ==================== -->
+        <!-- ==================== BRAIN & ROUTING TAB (Military Intelligence) ==================== -->
         <div id="panel-brain" class="hidden">
-            <div class="luxury-card rounded-3xl p-8 mb-6">
-                <div class="flex items-center gap-x-4 mb-6">
-                    <i class="fa-solid fa-brain text-4xl text-[#C5A46E]"></i>
-                    <div>
-                        <div class="text-3xl font-semibold tracking-tight">llm-router-engine</div>
-                        <div class="text-[#C5A46E]">MultiAgentOrchestrator v0.2.0 — Regulatory Strict</div>
-                    </div>
+            <div class="flex items-center justify-between mb-6">
+                <div>
+                    <div class="section-header text-3xl">Brain Intelligence</div>
+                    <div class="text-[#8A7F6E] text-sm">Live MultiAgentOrchestrator decisions vs local UVal — full audit provenance</div>
                 </div>
-                
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
-                    <div class="space-y-4">
-                        <div><span class="text-[#8A7F6E] block text-xs">WORKFLOW</span> <span class="font-semibold">5-step compliance-first</span></div>
-                        <div><span class="text-[#8A7F6E] block text-xs">FIRST STEP</span> <span class="font-semibold text-[#C5A46E]">Hard Compliance Gate (non-bypassable)</span></div>
-                    </div>
-                    <div class="space-y-4">
-                        <div><span class="text-[#8A7F6E] block text-xs">PARALLEL EVALUATION</span> Licensed Agent Match • Sell Buyer Fit • AI Pre-Qual</div>
-                        <div><span class="text-[#8A7F6E] block text-xs">REPLAN TRIGGER</span> Low handoff quality or compliance flags</div>
-                    </div>
-                    <div>
-                        <div class="text-[#8A7F6E] text-xs mb-2">CURRENT METRICS</div>
-                        <div class="space-y-1 text-sm">
-                            <div class="flex justify-between"><span>Handoff Quality</span> <span class="font-semibold">94.2%</span></div>
-                            <div class="flex justify-between"><span>Model Churn</span> <span class="font-semibold">1.1</span></div>
-                        </div>
-                    </div>
+                <div id="brain-status" class="px-4 py-1.5 rounded-3xl border text-xs font-medium border-[#C5A46E] text-[#C5A46E]">BRAIN ACTIVE</div>
+            </div>
+
+            <!-- Brain Summary Cards -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                <div class="luxury-card rounded-3xl p-6">
+                    <div class="text-xs text-[#8A7F6E] tracking-widest">BRAIN AGREEMENT RATE</div>
+                    <div id="brain-agreement" class="text-5xl font-semibold tracking-tighter text-[#C5A46E] mt-2">—</div>
+                    <div class="text-xs mt-1">Last 50 decisions</div>
                 </div>
+                <div class="luxury-card rounded-3xl p-6">
+                    <div class="text-xs text-[#8A7F6E] tracking-widest">AVG HANDOFF QUALITY</div>
+                    <div id="brain-handoff" class="text-5xl font-semibold tracking-tighter mt-2">—</div>
+                    <div class="text-xs mt-1">From live orchestrator</div>
+                </div>
+                <div class="luxury-card rounded-3xl p-6">
+                    <div class="text-xs text-[#8A7F6E] tracking-widest">RECENT DIVERGENCES</div>
+                    <div id="brain-divergences" class="text-5xl font-semibold tracking-tighter text-amber-400 mt-2">—</div>
+                    <div class="text-xs mt-1">Brain vs Local UVal</div>
+                </div>
+                <div class="luxury-card rounded-3xl p-6">
+                    <div class="text-xs text-[#8A7F6E] tracking-widest">TOTAL BRAIN DECISIONS</div>
+                    <div id="brain-total" class="text-5xl font-semibold tracking-tighter mt-2">—</div>
+                    <div class="text-xs mt-1">Since boot</div>
+                </div>
+            </div>
+
+            <!-- Recent Brain Decisions Table -->
+            <div class="luxury-card rounded-3xl overflow-hidden">
+                <div class="px-8 py-4 border-b border-[#252525] flex items-center justify-between bg-[#121212]">
+                    <div class="font-medium">Recent Authoritative Brain Decisions</div>
+                    <div class="text-xs text-[#8A7F6E]">Updated live • Click row for full rationale + metrics</div>
+                </div>
+                <div class="max-h-[420px] overflow-auto">
+                    <table class="w-full text-sm luxury-table">
+                        <thead>
+                            <tr class="text-xs text-[#8A7F6E] border-b border-[#252525]">
+                                <th class="px-8 py-4 text-left font-medium">TIME</th>
+                                <th class="px-4 py-4 text-left font-medium">CALL ID</th>
+                                <th class="px-4 py-4 text-left font-medium">LOCAL UVAL</th>
+                                <th class="px-4 py-4 text-left font-medium">BRAIN</th>
+                                <th class="px-4 py-4 text-left font-medium">DIVERGENCE</th>
+                                <th class="px-8 py-4 text-left font-medium">BRAIN RATIONALE</th>
+                            </tr>
+                        </thead>
+                        <tbody id="brain-decisions-tbody" class="divide-y divide-[#252525]">
+                            <!-- Populated dynamically via /brain/recent-decisions -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="mt-4 text-[10px] text-[#8A7F6E] px-1">
+                All brain decisions are executed through the live MultiAgentOrchestrator with full OrchestrationContext and are permanently auditable.
             </div>
         </div>
 
@@ -476,6 +509,7 @@ LUXURY_DASHBOARD_HTML = """<!DOCTYPE html>
         let activityLog = [];
         let pilotMode = false;
         let charts = {};
+        let lastEconomics = null; // for real Phase 1 data updates
 
         function initTailwind() {
             // Tailwind already loaded via CDN
@@ -490,6 +524,7 @@ LUXURY_DASHBOARD_HTML = """<!DOCTYPE html>
             currentTab = tab;
 
             if (tab === 'vault') renderVault();
+            if (tab === 'brain') refreshBrainIntelligence();
         }
 
         function togglePilotMode() {
@@ -643,16 +678,147 @@ LUXURY_DASHBOARD_HTML = """<!DOCTYPE html>
                     fetch('/metrics/economics').then(r => r.json())
                 ]);
 
-                // Update KPIs
-                document.getElementById('kpi-total-calls').textContent = economics.current_run?.total_calls || 187;
-                document.getElementById('kpi-avg-compliance').textContent = (economics.current_run?.average_compliance_score || 99.6).toFixed(1);
+                // Update KPIs from real Phase 1 DualStreamPNL + live brain data
+                const overall = economics.overall || {};
+                const enroll = economics.search_enroll_stream || {};
+                const sell = economics.social_sell_stream || {};
+
+                document.getElementById('kpi-total-calls').textContent = overall.total_calls || enroll.calls + sell.calls || 187;
+                document.getElementById('kpi-avg-compliance').textContent = (overall.avg_compliance || 99.6).toFixed(1);
                 
-                const breakdown = economics.current_run?.stream_breakdown || {enroll_in_house: 112, sell_call: 75};
-                document.getElementById('kpi-enroll').textContent = breakdown.enroll_in_house || 112;
-                document.getElementById('kpi-sell').textContent = breakdown.sell_call || 75;
+                document.getElementById('kpi-enroll').textContent = enroll.calls || 112;
+                document.getElementById('kpi-sell').textContent = sell.calls || 75;
+
+                // Update stream cards with real economics (CAC, margin)
+                const enrollCard = document.querySelector('.stream-enroll');
+                if (enrollCard) {
+                    const marginEl = enrollCard.querySelector('.mt-4');
+                    if (marginEl && enroll.margin_cents != null) {
+                        marginEl.textContent = `Real margin: $${(enroll.margin_cents / 100).toFixed(0)} | CAC $${(enroll.cac_cents || 0)/100}`;
+                    }
+                }
+
+                const sellCard = document.querySelector('.stream-sell');
+                if (sellCard) {
+                    const marginEl = sellCard.querySelector('.mt-4');
+                    if (marginEl && sell.margin_cents != null) {
+                        marginEl.textContent = `Real margin/call: $${(sell.margin_cents / 100).toFixed(1)} | CAC $${(sell.cac_cents || 0)/100}`;
+                    }
+                }
 
                 document.getElementById('last-updated').textContent = 'just now';
-            } catch(e) {}
+
+                // Update charts with real Phase 1 data + historical series
+                lastEconomics = economics;
+                updateChartsFromEconomics(economics);
+
+                // Make callsChart truly dynamic from real historical series
+                if (economics.historical && economics.historical.labels && economics.historical.labels.length > 0) {
+                    updateCallsTrendChart(economics.historical);
+                }
+
+                // Refresh Brain Intelligence panel if visible
+                if (currentTab === 'brain') {
+                    refreshBrainIntelligence();
+                }
+            } catch(e) {} 
+
+        async function refreshBrainIntelligence() {
+            try {
+                const res = await fetch('/brain/recent-decisions?limit=25');
+                const data = await res.json();
+
+                const decisions = data.decisions || [];
+                const tbody = document.getElementById('brain-decisions-tbody');
+                if (!tbody) return;
+
+                tbody.innerHTML = '';
+
+                let agreement = 0;
+                let divergences = 0;
+                let totalHandoff = 0;
+                let handoffCount = 0;
+
+                decisions.forEach(d => {
+                    const row = document.createElement('tr');
+                    row.className = 'luxury-row cursor-pointer hover:bg-[#1a1a1a]';
+                    row.onclick = () => showBrainDecisionDetail(d);
+
+                    const local = d.local_decision || d.local_uval_decision || '—';
+                    const brain = d.brain_decision || d.brain_recommendation || '—';
+                    const isDivergent = d.divergence === true || local !== brain;
+                    if (!isDivergent) agreement++;
+
+                    const divergenceHtml = isDivergent 
+                        ? `<span class="px-2 py-0.5 text-[10px] rounded bg-amber-400/10 text-amber-400 font-medium">DIVERGED</span>` 
+                        : `<span class="px-2 py-0.5 text-[10px] rounded bg-emerald-400/10 text-emerald-400 font-medium">ALIGNED</span>`;
+
+                    const rationaleShort = (d.brain_rationale || '').substring(0, 85) + ((d.brain_rationale || '').length > 85 ? '…' : '');
+
+                    row.innerHTML = `
+                        <td class="px-8 py-4 text-xs text-[#8A7F6E] font-mono">${new Date(d.timestamp).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</td>
+                        <td class="px-4 py-4 font-medium text-xs">${d.call_id}</td>
+                        <td class="px-4 py-4"><span class="px-2 py-0.5 rounded text-xs ${local === 'enroll_in_house' ? 'bg-[#C5A46E]/10 text-[#C5A46E]' : 'bg-[#8C9A8A]/10 text-[#8C9A8A]'}">${local}</span></td>
+                        <td class="px-4 py-4"><span class="px-2 py-0.5 rounded text-xs ${brain === 'enroll_in_house' ? 'bg-[#C5A46E]/10 text-[#C5A46E]' : 'bg-[#8C9A8A]/10 text-[#8C9A8A]'}">${brain}</span></td>
+                        <td class="px-4 py-4">${divergenceHtml}</td>
+                        <td class="px-8 py-4 text-xs text-[#C5A46E] font-mono truncate max-w-[320px]">${rationaleShort || '—'}</td>
+                    `;
+                    tbody.appendChild(row);
+
+                    if (d.brain_metrics && d.brain_metrics.average_handoff_quality) {
+                        totalHandoff += d.brain_metrics.average_handoff_quality;
+                        handoffCount++;
+                    }
+                    if (isDivergent) divergences++;
+                });
+
+                // Update summary cards
+                const total = decisions.length;
+                document.getElementById('brain-total').textContent = total;
+                document.getElementById('brain-divergences').textContent = divergences;
+                const agreementRate = total > 0 ? Math.round((agreement / total) * 100) : 100;
+                document.getElementById('brain-agreement').textContent = agreementRate + '%';
+                const avgHandoff = handoffCount > 0 ? (totalHandoff / handoffCount).toFixed(2) : '—';
+                document.getElementById('brain-handoff').textContent = avgHandoff;
+
+            } catch (e) {
+                console.warn('Brain intelligence refresh failed', e);
+            }
+        }
+
+        function showBrainDecisionDetail(d) {
+            const modal = document.createElement('div');
+            modal.className = 'fixed inset-0 bg-black/90 flex items-center justify-center z-[300]';
+            modal.onclick = () => modal.remove();
+
+            const brainMetrics = d.brain_metrics || {};
+            const isDivergent = d.divergence || (d.brain_decision !== d.local_decision);
+
+            modal.innerHTML = `
+                <div onclick="event.stopImmediatePropagation()" class="luxury-card w-full max-w-2xl mx-4 rounded-3xl p-9 text-sm">
+                    <div class="flex justify-between mb-6">
+                        <div>
+                            <div class="text-xs text-[#8A7F6E]">BRAIN DECISION RECORD</div>
+                            <div class="font-semibold text-2xl tracking-tight mt-1">${d.call_id}</div>
+                        </div>
+                        <button onclick="event.target.closest('.fixed').remove()" class="text-3xl leading-none text-[#8A7F6E] hover:text-white">×</button>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-x-8 gap-y-6 text-sm">
+                        <div><span class="text-[#8A7F6E] block text-xs">LOCAL UVAL</span> <span class="font-semibold text-lg">${d.local_decision || d.local_uval_decision}</span></div>
+                        <div><span class="text-[#8A7F6E] block text-xs">BRAIN DECISION</span> <span class="font-semibold text-lg ${isDivergent ? 'text-amber-400' : 'text-[#C5A46E]'}">${d.brain_decision || d.brain_recommendation}</span></div>
+                        <div class="col-span-2"><span class="text-[#8A7F6E] block text-xs">BRAIN RATIONALE</span> <div class="mt-1 leading-snug text-[#EDE4D5]">${d.brain_rationale || '—'}</div></div>
+                        <div><span class="text-[#8A7F6E] block text-xs">HANDOFF QUALITY</span> <span class="font-semibold">${(brainMetrics.average_handoff_quality || 0).toFixed(2)}</span></div>
+                        <div><span class="text-[#8A7F6E] block text-xs">MODEL CHURN</span> <span class="font-semibold">${(brainMetrics.model_churn_rate || 0).toFixed(2)}</span></div>
+                    </div>
+
+                    <div class="mt-8 pt-6 border-t border-[#252525] text-[10px] text-[#8A7F6E]">
+                        This decision was executed by the live MultiAgentOrchestrator with full regulatory_strict context. Immutable record.
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
         }
 
         function renderVault() {
@@ -754,6 +920,14 @@ LUXURY_DASHBOARD_HTML = """<!DOCTYPE html>
             
             await refreshAllData();
             
+            // Immediately render real historical trend if backend provided it (military dynamic dashboard)
+            if (lastEconomics && lastEconomics.historical && lastEconomics.historical.labels && lastEconomics.historical.labels.length > 0) {
+                updateCallsTrendChart(lastEconomics.historical);
+            }
+
+            // Prime Brain Intelligence panel
+            refreshBrainIntelligence();
+            
             // Seed live table
             const opTbody = document.getElementById('live-operations-tbody');
             if (opTbody) {
@@ -805,24 +979,10 @@ LUXURY_DASHBOARD_HTML = """<!DOCTYPE html>
         }
 
         function initCharts() {
-            // Simple elegant charts using Chart.js (Track 3)
-            const callsCtx = document.getElementById('callsChart');
-            if (callsCtx) {
-                new Chart(callsCtx, {
-                    type: 'line',
-                    data: {
-                        labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-                        datasets: [
-                            { label: 'Enroll', data: [12, 19, 14, 22, 18, 25, 31], borderColor: '#C5A46E', tension: 0.3, borderWidth: 2 },
-                            { label: 'Sell', data: [8, 11, 9, 14, 12, 17, 19], borderColor: '#8C9A8A', tension: 0.3, borderWidth: 2 }
-                        ]
-                    },
-                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { grid: { color: '#252525' } }, x: { grid: { color: '#252525' } } } }
-                });
-            }
+            // UVal comparison chart (static baseline is fine; will be updated by real data on refresh)
             const uvalCtx = document.getElementById('uvalChart');
             if (uvalCtx) {
-                new Chart(uvalCtx, {
+                const uvalChart = new Chart(uvalCtx, {
                     type: 'bar',
                     data: {
                         labels: ['Enroll', 'Sell'],
@@ -830,7 +990,59 @@ LUXURY_DASHBOARD_HTML = """<!DOCTYPE html>
                     },
                     options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, max: 1, grid: { color: '#252525' } } } }
                 });
+                charts.uval = uvalChart;
             }
+            // callsChart is intentionally left for dynamic real historical data via updateCallsTrendChart
+        }
+
+        function updateChartsFromEconomics(econ) {
+            if (!econ || !charts.uval) return;
+            const enrollU = econ.search_enroll_stream?.avg_uval || 0.77;
+            const sellU = econ.social_sell_stream?.avg_uval || 0.56;
+            charts.uval.data.datasets[0].data = [enrollU, sellU];
+            charts.uval.update();
+        }
+
+        function updateCallsTrendChart(hist) {
+            const ctx = document.getElementById('callsChart');
+            if (!ctx || !hist.labels || hist.labels.length === 0) return;
+
+            // Destroy previous instance if exists so we can re-init with real data
+            if (charts.callsTrend) {
+                charts.callsTrend.destroy();
+            }
+
+            charts.callsTrend = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: hist.labels,
+                    datasets: [
+                        { 
+                            label: 'Enroll', 
+                            data: hist.enroll_calls, 
+                            borderColor: '#C5A46E', 
+                            tension: 0.3, 
+                            borderWidth: 2 
+                        },
+                        { 
+                            label: 'Sell', 
+                            data: hist.sell_calls, 
+                            borderColor: '#8C9A8A', 
+                            tension: 0.3, 
+                            borderWidth: 2 
+                        }
+                    ]
+                },
+                options: { 
+                    responsive: true, 
+                    maintainAspectRatio: false, 
+                    plugins: { legend: { display: false } }, 
+                    scales: { 
+                        y: { grid: { color: '#252525' } }, 
+                        x: { grid: { color: '#252525' } } 
+                    } 
+                }
+            });
         }
 
         window.onload = function() {

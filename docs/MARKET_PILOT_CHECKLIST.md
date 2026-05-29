@@ -45,11 +45,17 @@ You should see:
 
 ## Next Autonomous High-Leverage Work (If Continuing the Build)
 
-1. Production GHL webhook adapter + signature verification
-2. Live handoff to agents (GHL + Twilio TaskRouter)
-3. Real economics dashboard (grok-extract-pnl + masterBRIDGE analytics)
-4. Full llm-router-engine wiring as the brain
-5. AEP surge policy + dry-run tooling
+See the full detailed, agent-orchestratable plan:
+
+**`docs/AGENT_ORCHESTRATED_BUILD_PLAN.md`**
+
+This document is structured for an orchestrator or team of specialized sub-agents. It contains phased workstreams, sub-tasks, context from your moat repos, verification criteria, and suggested agent roles.
+
+**Core immediate focus areas** (from the plan):
+1. Production GHL + Twilio webhook integration + live TaskRouter handoff (Phase 0)
+2. Real economics dashboard (replace all stubs with grok-extract-pnl + masterBRIDGE analytics) — Phase 1
+3. Sell stream buyer / leadmarket connection
+4. Full llm-router-engine MultiAgentOrchestrator wiring with Compliance Gate as first non-bypassable WorkflowStep
 
 **This foundation is the highest-precision starting point possible from your moat.**
 

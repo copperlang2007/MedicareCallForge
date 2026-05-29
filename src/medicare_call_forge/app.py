@@ -35,6 +35,7 @@ from medicare_call_forge.observability import metrics, audit_vault
 from medicare_call_forge.telephony.inbound_handler import get_telephony_router
 from medicare_call_forge.dashboard import get_luxury_dashboard_html
 from medicare_call_forge.ghl.client import ghl_client
+from medicare_call_forge.router_integration import RealRouterAdapter
 
 # Production logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
@@ -270,15 +271,32 @@ async def get_full_audit_vault():
 
 
 @app.get("/metrics/economics")
-async def economics_stub():
-    """Basic economics stub (will be replaced by full grok-extract-pnl + masterBRIDGE analytics dashboard)."""
-    summary = metrics.get_summary()
-    return {
-        "search_stream": {"target_cac": "<$40", "target_cpa": "<$150", "projected_enrollments_per_100_calls": "18-25"},
-        "social_sell_stream": {"target_cac": "<$18", "sell_price": "$25", "target_margin_per_call": "$7-15"},
-        "current_run": summary,
-        "note": "Replace this stub with real dual-stream PNL from your grok-extract models and masterBRIDGE analytics.",
-    }
+async def economics():
+    """
+    Production dual-stream economics endpoint.
+
+    Now powered by the real DualStreamPNLAdapter + live MultiAgentOrchestrator brain
+    cost signals when available.
+    """
+    brain_metrics = {}
+    try:
+        if _router_adapter._orchestrator:
+            brain_metrics = _router_adapter._orchestrator.get_workflow_metrics() or {}
+    except Exception:
+        pass
+
+    data = metrics.get_dual_stream_economics(brain_metrics=brain_metrics)
+
+    # Attach real historical series + military alerts (Phase 2/3 dashboard upgrade)
+    try:
+        from medicare_call_forge.economics import economics_engine
+        data["historical"] = economics_engine.get_historical_series(days=7)
+        data["alerts"] = economics_engine.check_thresholds()
+    except Exception:
+        data["historical"] = {"labels": [], "enroll_calls": [], "sell_calls": [], "overall_margin_dollars": []}
+        data["alerts"] = []
+
+    return data
 
 
 @app.get("/dashboard", response_class=HTMLResponse)
@@ -297,6 +315,18 @@ async def ghl_health():
         "connected": ghl_client.enabled,
         "base_url": ghl_client.client.base_url if ghl_client.enabled else None,
         "message": "GHL client ready" if ghl_client.enabled else "GHL_API_KEY not configured (graceful mode)",
+    }
+
+
+@app.get("/brain/recent-decisions")
+async def recent_brain_decisions(limit: int = 25):
+    """Military intelligence endpoint for the Brain tab — recent authoritative decisions from the live MultiAgentOrchestrator."""
+    adapter = RealRouterAdapter()
+    decisions = adapter.get_recent_brain_decisions(limit=limit)
+    return {
+        "decisions": decisions,
+        "total_recorded": len(decisions),
+        "brain_active": adapter._orchestrator is not None,
     }
 
 

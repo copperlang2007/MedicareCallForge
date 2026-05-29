@@ -62,5 +62,4 @@
 
 This roadmap is now locked. Any deviation requires a documented exception with compensating controls and updated red-team sign-off.
 
-**Immediate Next Action (Executing Now as My Build)**: 
-Write the root README.md for the MedicareCallForge project that ties everything together, references the artifacts already created, and states the first concrete code task (implementing the Compliance Gate MCP tool skeleton using the extracted guardrails + compliance primitives). Then close the final todo and consider the core planning phase complete. Highest precision. No check-ins.
+**Immediate Next Action**: Feed `docs/AGENT_ORCHESTRATED_BUILD_PLAN.md` to the MultiAgentOrchestrator (or spawn specialized sub-agents against it). This is now the locked, detailed execution blueprint for the orchestrated build through pilot. Highest precision. No low-leverage work. Verification with evidence before any task is closed.

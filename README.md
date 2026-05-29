@@ -44,7 +44,15 @@ Lower-intent/overflow volume is scored and routed toward the sell stream (must k
 - Dockerfile + Railway deployment ready
 - Comprehensive simulator demonstrating **both** streams
 
-See [PILOT_WIRING_GUIDE.md](PILOT_WIRING_GUIDE.md) for how to connect real Twilio + GHL traffic.
+See [PILOT_WIRING_GUIDE.md](docs/PILOT_WIRING_GUIDE.md) for how to connect real Twilio + GHL traffic.
+
+**Live Test Runs (Client-Safe Protocol)**
+- [TWILIO_CONSOLE_CHECKLIST.md](docs/TWILIO_CONSOLE_CHECKLIST.md)
+- [LIVE_TEST_CALLER_SCRIPT.md](docs/LIVE_TEST_CALLER_SCRIPT.md) — exact language to pass the Hard Compliance Gate
+- [LIVE_TEST_RUN_RUNBOOK.md](docs/LIVE_TEST_RUN_RUNBOOK.md) — one-page military test protocol for the client
+
+**For orchestrated multi-agent execution of the remaining build**, use:
+`docs/AGENT_ORCHESTRATED_BUILD_PLAN.md` — detailed task list with context, sub-tasks, verification criteria, and suggested agent roles designed for the llm-router-engine MultiAgentOrchestrator + MCP tools.
 
 ## Documentation
 

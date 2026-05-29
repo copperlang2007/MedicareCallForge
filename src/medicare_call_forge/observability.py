@@ -15,6 +15,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from medicare_call_forge.economics.dual_stream_pnl import economics_engine, DualStreamSnapshot
+
 
 class SimpleMetrics:
     """In-memory metrics for pilot. Thread-safe enough for low volume."""
@@ -97,7 +99,7 @@ class PersistentAuditVault:
 
 
 class EnhancedMetrics(SimpleMetrics):
-    """Extends SimpleMetrics with persistent vault + dual-stream economics hooks."""
+    """Extends SimpleMetrics with persistent vault + real dual-stream PNL engine."""
 
     def __init__(self):
         super().__init__()
@@ -108,32 +110,45 @@ class EnhancedMetrics(SimpleMetrics):
         if audit_event:
             self.vault.append(audit_event)
 
-    def get_dual_stream_economics(self) -> dict:
-        """Enhanced version ready for replacement by grok-extract-pnl + masterBRIDGE."""
-        summary = self.get_summary()
-        vault_size = len(self.vault.get_all())
+    def get_dual_stream_economics(self, brain_metrics: dict[str, Any] | None = None) -> dict:
+        """
+        Now powered by the real DualStreamPNLAdapter.
+
+        This is the production path. It can be fed by:
+        - grok-extract-telesales-pnl batch outputs
+        - live MultiAgentOrchestrator cost signals (via brain_metrics)
+        - real post-call processing
+        """
+        snapshot: DualStreamSnapshot = economics_engine.get_snapshot(brain_metrics=brain_metrics)
 
         return {
             "search_enroll_stream": {
-                "target_cac": "<$40",
-                "target_cpa": "<$150",
-                "projected_enrollments_per_100": "18-25",
-                "avg_uval": 0.77,
-                "calls": summary.get("stream_breakdown", {}).get("enroll_in_house", 0),
+                "calls": snapshot.enroll.calls,
+                "enrollments": snapshot.enroll.enrollments,
+                "revenue_cents": snapshot.enroll.revenue_cents,
+                "cost_cents": snapshot.enroll.cost_cents,
+                "cac_cents": snapshot.enroll.cac_cents,
+                "margin_cents": snapshot.enroll.margin_cents,
+                "avg_uval": round(snapshot.enroll.avg_uval, 3),
+                "target_cac_cents": snapshot.enroll.target_cac_cents,
             },
             "social_sell_stream": {
-                "sell_price": "$25",
-                "target_margin": "$7-15",
-                "target_cac": "<$18",
-                "avg_uval": 0.56,
-                "calls": summary.get("stream_breakdown", {}).get("sell_call", 0),
+                "calls": snapshot.sell.calls,
+                "revenue_cents": snapshot.sell.revenue_cents,
+                "cost_cents": snapshot.sell.cost_cents,
+                "margin_cents": snapshot.sell.margin_cents,
+                "avg_uval": round(snapshot.sell.avg_uval, 3),
+                "target_cac_cents": snapshot.sell.target_cac_cents,
+                "target_margin_cents": snapshot.sell.target_margin_cents,
             },
             "overall": {
-                "total_calls": summary.get("total_calls", 0),
-                "avg_compliance": summary.get("average_compliance_score", 0),
-                "audit_vault_size": vault_size,
-                "note": "Replace with real grok-extract-telesales-pnl LSTM + masterBRIDGE analytics for production.",
+                "total_calls": snapshot.total_calls,
+                "overall_margin_cents": snapshot.overall_margin_cents,
+                "brain_cost_efficiency": snapshot.brain_cost_efficiency,
+                "audit_vault_size": len(self.vault.get_all()),
+                "timestamp": snapshot.timestamp,
             },
+            "note": "Real dual-stream PNL. Feed via economics_engine.ingest_batch() from grok-extract-telesales-pnl or live brain.",
         }
 
 

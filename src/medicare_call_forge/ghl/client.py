@@ -156,12 +156,14 @@ class GHLClient:
         recording_url: str | None = None,
         state: str | None = None,
         from_number: str | None = None,
+        brain_rationale: str | None = None,
     ) -> bool:
         """
         High-level helper specifically for MedicareCallForge call outcomes.
 
         Pushes a clean note + updates useful custom fields (decision, hash, uval, etc.)
         in one call. This is the recommended way to log calls back to GHL.
+        Brain rationale included for full military audit trail (in note).
         """
         # 1. Log as a note (best for audit/compliance proof)
         note_body = (
@@ -176,6 +178,8 @@ class GHLClient:
             note_body += f"State: {state}\n"
         if from_number:
             note_body += f"Phone: {from_number}\n"
+        if brain_rationale:
+            note_body += f"Brain Rationale: {brain_rationale[:200]}\n"
 
         note_success = self.add_note(contact_id, f"MedicareCallForge - {decision}", note_body)
 
