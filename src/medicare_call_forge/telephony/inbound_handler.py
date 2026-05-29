@@ -473,6 +473,10 @@ async def twilio_voice_inbound(request: Request) -> Response:
 
     live = router_adapter.decide_telephony_stream(score_input)
 
+    # Military observability: Explicitly log when running in safe test mode
+    if settings.COMPLIANCE_TEST_MODE:
+        logger.warning("COMPLIANCE_TEST_MODE ACTIVE for call %s — gate evidence checks relaxed for safe live testing only", call_sid)
+
     # Military end-to-end: Prefer live brain decision when available and valid (brain is now authoritative)
     brain_decision = live.get("brain_recommendation")
     local_decision = live.get("decision", "sell_call")
@@ -491,9 +495,12 @@ async def twilio_voice_inbound(request: Request) -> Response:
         decision_source = "fallback"
 
     # Full audit logging of decision provenance (military compliance requirement)
+    is_divergent = decision != local_decision
     if live.get("source", "").startswith("llm-router"):
         brain_rat = live.get("brain_rationale")
         extra = f" | source={decision_source}"
+        if is_divergent:
+            extra += " | DIVERGENCE_DETECTED=True"
         if brain_rat:
             extra += f" | brain_rationale={str(brain_rat)[:140]}"
         logger.info("LIVE BRAIN DECISION for call %s | final=%s | local=%s | metrics=%s%s",
