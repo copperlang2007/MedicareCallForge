@@ -47,21 +47,29 @@ Lower-intent/overflow volume is scored and routed toward the sell stream (must k
 See [PILOT_WIRING_GUIDE.md](docs/PILOT_WIRING_GUIDE.md) for how to connect real Twilio + GHL traffic.
 
 **Live Test Runs (Client-Safe Protocol)**
+- [PILOT_LAUNCH_READINESS_CHECKLIST.md](docs/PILOT_LAUNCH_READINESS_CHECKLIST.md) — the single source of truth before any real ad spend or production numbers
 - [TWILIO_CONSOLE_CHECKLIST.md](docs/TWILIO_CONSOLE_CHECKLIST.md)
 - [LIVE_TEST_CALLER_SCRIPT.md](docs/LIVE_TEST_CALLER_SCRIPT.md) — exact language to pass the Hard Compliance Gate
 - [LIVE_TEST_RUN_RUNBOOK.md](docs/LIVE_TEST_RUN_RUNBOOK.md) — one-page military test protocol for the client
+- [CLIENT_LIVE_TEST_QUICK_REFERENCE.md](docs/CLIENT_LIVE_TEST_QUICK_REFERENCE.md) — print this for the first live test day
+- `scripts/post_deploy_smoke_test.py` — run after every deployment before client demos or live calls
+- `COMPLIANCE_TEST_MODE=true` — safe, fully-audited mode for real phone test calls (never enable in production)
 
 **For orchestrated multi-agent execution of the remaining build**, use:
 `docs/AGENT_ORCHESTRATED_BUILD_PLAN.md` — detailed task list with context, sub-tasks, verification criteria, and suggested agent roles designed for the llm-router-engine MultiAgentOrchestrator + MCP tools.
 
 ## Documentation
 
-- [PILOT_WIRING_GUIDE.md](PILOT_WIRING_GUIDE.md) — How to go live with real traffic
+- [PILOT_WIRING_GUIDE.md](docs/PILOT_WIRING_GUIDE.md) — How to go live with real traffic
 - [DEPLOYMENT.md](DEPLOYMENT.md) — Deployment options and pilot setup
+- [docs/PILOT_LAUNCH_READINESS_CHECKLIST.md](docs/PILOT_LAUNCH_READINESS_CHECKLIST.md) — Complete go/no-go checklist for controlled pilot
+- [docs/LIVE_TEST_RUN_RUNBOOK.md](docs/LIVE_TEST_RUN_RUNBOOK.md) — Client-facing protocol for safe live test calls
 - [architecture/ARCHITECTURE.md](architecture/ARCHITECTURE.md)
 - [docs/MARKET_PILOT_CHECKLIST.md](docs/MARKET_PILOT_CHECKLIST.md)
 - [docs/ROADMAP.md](docs/ROADMAP.md)
 - [docs/CONSOLIDATION_STRATEGY.md](docs/CONSOLIDATION_STRATEGY.md)
+
+**CI**: GitHub Actions runs lint + tests on every push (`.github/workflows/ci.yml`).
 
 ## License
 

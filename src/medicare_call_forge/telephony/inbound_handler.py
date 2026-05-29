@@ -254,6 +254,8 @@ def _build_enroll_twiml(
     ghl_fields: dict[str, Any],
     call_sid: str,
     compliance_score: float,
+    decision: str = "enroll_in_house",
+    brain_rationale: str | None = None,
 ) -> str:
     """Enroll stream TwiML: recording notice + (optional Media Stream for live transcription) + smart TaskRouter Enqueue with rich attributes.
 
@@ -309,10 +311,10 @@ def _build_enroll_twiml(
             logger.info("Enqueued to TaskRouter ENROLL workflow %s with rich attrs for %s", workflow_sid, call_sid)
         except Exception as exc:
             logger.error("TaskRouter Enqueue build failed, graceful fallback to Dial: %s", exc)
-            _add_fallback_dial(resp, call_sid, compliance_hash, decision, uval, live.get("brain_rationale"))
+            _add_fallback_dial(resp, call_sid, compliance_hash, decision, uval, brain_rationale)
     else:
         logger.warning("No TWILIO_ENROLL_WORKFLOW_SID configured - using Dial fallback (pilot mode)")
-        _add_fallback_dial(resp, call_sid, compliance_hash, decision, uval, live.get("brain_rationale"))
+        _add_fallback_dial(resp, call_sid, compliance_hash, decision, uval, brain_rationale)
 
     return str(resp)
 
@@ -365,7 +367,8 @@ def _build_compliant_twiml_for_stream(
     sell_package: dict[str, Any] | None = None,
 ) -> str:
     if decision == "enroll_in_house":
-        return _build_enroll_twiml(compliance_hash, uval, state, ghl_fields, call_sid, compliance_score)
+        brain_rat = live.get("brain_rationale") if "live" in dir() else None
+        return _build_enroll_twiml(compliance_hash, uval, state, ghl_fields, call_sid, compliance_score, decision, brain_rat)
     else:
         pkg = sell_package or {"call_id": call_sid, "compliance_proof": {"audit_hash": compliance_hash}}
         return _build_sell_twiml(compliance_hash, pkg, call_sid)

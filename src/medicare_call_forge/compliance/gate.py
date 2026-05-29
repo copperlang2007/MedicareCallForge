@@ -91,7 +91,7 @@ class AuditEvent(BaseModel):
     """Tamper-evident audit event for the 10-year vault."""
     event_id: str
     prev_hash: str | None
-    event_type: Literal["compliance_gate", "soa_signed", "disclosure_played", "call_transferred", "lead_sold", "recording_vaulted"]
+    event_type: Literal["compliance_gate", "soa_signed", "disclosure_played", "call_transferred", "lead_sold", "recording_vaulted", "brain_routing_decision"]
     entity_type: str
     entity_id: str
     payload: dict[str, Any]

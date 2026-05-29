@@ -48,6 +48,35 @@ def test_perfect_compliant_call_passes():
     assert len([f for f in result.flags if f.severity == "high"]) == 0
 
 
+def test_compliance_test_mode_allows_proceeding_with_weak_evidence():
+    """COMPLIANCE_TEST_MODE must allow calls through for safe live testing while still logging the bypass."""
+    context = CallContext(
+        call_id="call_test_mode_003",
+        from_number="+15551112222",
+        state="FL",
+        has_explicit_tcpa_consent=True,
+        recording_started=True,
+        transcript_or_evidence={
+            "mentions": {
+                "soa_before_specifics": True,
+            }
+            # Deliberately missing several core mentions
+        },
+    )
+
+    # Normal mode should block or heavily penalize
+    normal_result = apply_hard_compliance_gate(context)
+    assert normal_result.ready_for_next_step is False or normal_result.compliance_score < 70
+
+    # Test mode should allow proceeding
+    test_result = apply_hard_compliance_gate(context, test_mode=True)
+    assert test_result.ready_for_next_step is True
+
+    # Must still record that test mode was active
+    test_mode_flags = [f for f in test_result.flags if "TEST" in str(f.evidence or "")]
+    assert len(test_mode_flags) > 0
+
+
 def test_missing_recording_and_tp_mo_blocks():
     """Realistic failure mode that would trigger CMS fines."""
     context = CallContext(

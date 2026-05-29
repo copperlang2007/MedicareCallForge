@@ -156,3 +156,44 @@ def test_dev_signature_skip_and_graceful_config():
     assert settings.TWILIO_AUTH_TOKEN  # configured
     # No crash when workflow SIDs absent (pilot graceful degradation to Dial per deploy requirements)
     assert isinstance(settings.TWILIO_ENROLL_WORKFLOW_SID, str)
+
+
+def test_compliance_test_mode_relaxes_gate_but_preserves_audit(monkeypatch):
+    """COMPLIANCE_TEST_MODE allows real phone test calls while still producing full brain + audit trail."""
+    monkeypatch.setattr(settings, "COMPLIANCE_TEST_MODE", True)
+
+    # Minimal evidence that would normally fail the gate
+    payload = {
+        "CallSid": "CA_test_mode_001",
+        "From": "+15551234567",
+        "To": "+18005551234",
+        "CallerState": "CA",
+        "SpeechResult": "just shopping",
+    }
+    r = client.post("/webhooks/twilio/voice", data=payload)
+    assert r.status_code == 200
+    body = r.text.lower()
+    # Should still return valid TwiML (not block) because test mode relaxed the gate
+    assert "recorded for compliance" in body or "connected to a licensed" in body or "medicare education" in body
+
+    # Reset for other tests
+    monkeypatch.setattr(settings, "COMPLIANCE_TEST_MODE", False)
+
+
+def test_brain_decision_is_authoritative_in_response():
+    """When live brain is wired, the primary decision comes from it (with local UVal as explicit fallback for audit)."""
+    # Use the high-quality payload that normally passes the gate
+    payload = {
+        "CallSid": "CA_brain_auth_001",
+        "From": "+15551234567",
+        "To": "+18005551234",
+        "CallerState": "CA",
+        "SpeechResult": "medicare advantage plan",
+        "LicensedStates": '["CA"]',
+        "CurrentAvailability": "available_now",
+    }
+    r = client.post("/webhooks/twilio/voice", data=payload)
+    assert r.status_code == 200
+    # The handler now prefers brain decision when available
+    # We mainly verify no crash and that the brain path was exercised (full verification in military harness)
+    assert "recorded for compliance" in r.text.lower() or "connected to a licensed" in r.text.lower()

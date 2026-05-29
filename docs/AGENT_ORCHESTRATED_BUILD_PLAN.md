@@ -108,6 +108,7 @@ The real llm-router-engine brain is now an active decision participant for both 
 - Economics engine includes time-series history + production AEP what-if simulator (`what_if_aep_scenario`).
 - Luxury dashboard is fully dynamic (real historical series driving Chart.js trend charts).
 - Military verification harness `scripts/verify_military_e2e.py` proves the complete autonomous chain.
+- Full client live test tooling delivered: `COMPLIANCE_TEST_MODE`, Twilio checklist, exact caller script, one-page runbook, post-deploy smoke test, and `PILOT_LAUNCH_READINESS_CHECKLIST.md`.
 - All tests green.
 
 ### Task 1.1: Production Economics Dashboard (grok-extract-pnl + masterBRIDGE Analytics)
